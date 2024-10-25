@@ -1,31 +1,17 @@
-import express from "express";
-import cors from "cors";
+import { EachMessagePayload } from "kafkajs"
+import { createUser } from "./controllers/firebase-auth.controller"
+import consumer from "./config/kafka"
 
-import { routes } from "./routes";
-import dotenv from "dotenv";
-import cookieParser from "cookie-parser";
-
-dotenv.config();
-
-const PORT = process.env.PORT || 8080;
-const app = express();
-
-app.use(cookieParser());
-app.use(express.json());
-app.use(
-  cors({
-    credentials: true,
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:4000",
-      "http://localhost:5000",
-    ],
+const run = async () => {
+  await consumer.connect();
+  await consumer.subscribe({ topic: 'users' });
+  await consumer.run({
+      eachMessage: async (message: EachMessagePayload) => {
+          const userMessage = JSON.parse(message.message.value.toString())
+          if(userMessage.action=="create"){
+            createUser(userMessage.user.email, userMessage.user.password, userMessage.user.first_name, userMessage.user.is_ambassador);
+          }
+      }
   })
-);
-
-routes(app);
-
-app.listen(PORT, () => {
-  console.log(`Listening on port ${PORT}`);
-});
-
+}
+run().then(console.error);
